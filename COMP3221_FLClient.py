@@ -9,42 +9,73 @@ import sys
 import json
 import copy
 import random
-import numpy as np
+import pandas
+
 
 import matplotlib
 import matplotlib.pyplot as plt
 
-class LinearRegressionModel(nn.Module):
-    def __init__(self, input_size = 1):
-        super(LinearRegressionModel, self).__init__()
-        # Create a linear transformation to the incoming data
-        self.linear = nn.Linear(input_size, 1)
+	
+def parse_csv_file():
+	df = pandas.read_csv('FLData/calhousing_train_client1.csv')
 
-    # Define how the model is going to be run, from input to output
-    def forward(self, x):
-        # Apply linear transformation
-        output = self.linear(x)
-        return output.reshape(-1)
-    
+	# Extract the input features and target values
+	x = df.drop('MedHouseVal', axis=1).values
+	y = df['MedHouseVal'].values
+
+	x_tensor = torch.tensor(x, dtype=torch.float32)
+	y_tensor = torch.tensor(y, dtype=torch.float32)
+
+	y_tensor = y_tensor.reshape(-1, 1)
+
+	# Normalize the input values
+	x_tensor = min_max_scaling(x_tensor)
+	return x_tensor, y_tensor
+
+def min_max_scaling(tensor):
+    min_vals = tensor.min(dim=0, keepdim=True).values
+    max_vals = tensor.max(dim=0, keepdim=True).values
+    return (tensor - min_vals) / (max_vals - min_vals)
 
 def main():
-    # Generate random parameters for the linear regression model
-    
-    server = LinearRegressionModel(input_size=1)   
+	
+	# CLI info parsing
+	if len(sys.argv) != 4:
+		print("Usage: python3 COMP3221_FLClient.py <Client-id> <Port-Client> <Opt-Method>")
+		return
 
-    # Listen for initial connection requests from clients
-    while True:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('localhost', sys.argv[1]))
-        s.listen(1)
+	client_id = sys.argv[1]
+	port = int(sys.argv[2])
+	if port <= 6000 or port > 6005:
+		print("Port number should be between 6001 and 6005")
+		return
 
-        try:
-            conn, addr = s.accept()
-            print("Connection from: ", addr)
-        except socket.timeout:
-            continue
+	opt_method = int(sys.argv[3])
+	if opt_method < 0 or opt_method >= 2:
+		print("Optimization method should be 0 or 1")
+		return
+	
+	x_tensor, y_tensor = parse_csv_file()
 
-    
+	plt.scatter(x_tensor[:, 0], y_tensor)
+	plt.show()
+	return
+
+	# Connect to the Server
+	while True:
+		try:
+			client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			server_address = ('localhost', 6000)
+			client_socket.connect(server_address)
+			break
+		except Exception as e:
+			print(f"Error: {e}")
+			continue
+
+	print(f"Connected to the server on {server_address[0]}:{server_address[1]}")
+		
+
+	
 
 if __name__ == "__main__":
 	main()
