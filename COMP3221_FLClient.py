@@ -34,7 +34,7 @@ class UserAVG():
 		train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
 		# Define the loss function, we r using MSELOSS (Determines how close to the desired result we are)
-		criterion = nn.MSELoss()
+		mse = nn.MSELoss()
 
 		# Define the optimizer, we r using SGD (Stochastic Gradient Descent) This can and im pretty sure should be changed
 		# Basically is how the model will have it paramters updated
@@ -52,7 +52,7 @@ class UserAVG():
 				# This is where the model is run against the data
 				output = self.model(x_batch)
 				# Calculates the loss of the model based on MSELOSS
-				loss = criterion(output, y_batch)
+				loss = mse(output, y_batch)
 				# Calculates the gradients of the model
 				loss.backward()
 				# Updates the model parameters based on the gradients calculated above (stored in the tensors)
@@ -65,9 +65,20 @@ class UserAVG():
 
 		return self.model
 
+	def test(self, x_tensor, y_tensor):
+		# Run the model against the test data
+		# This with is included to stop the model from calculating the gradients
+		# Saving time efficiency
+		with torch.no_grad():
+			mse = nn.MSELoss()
+			output = self.model(x_tensor)
+			loss = mse(output, y_tensor)
+			print(f"Client {self.client_id} - Test Loss: {loss.item()}")
+
+
 	
-def parse_csv_file():
-	df = pandas.read_csv('FLData/calhousing_train_client1.csv')
+def parse_csv_file(input_file):
+	df = pandas.read_csv(input_file)
 
 	# Extract the input features and target values
 	x = df.drop('MedHouseVal', axis=1).values
@@ -103,14 +114,19 @@ def main():
 		print("Optimization method should be 0 or 1")
 		return
 	
-	x_tensor, y_tensor = parse_csv_file()
+	x_tensor, y_tensor = parse_csv_file("FLData/calhousing_train_client1.csv")
+
 
 	# Create a Linear Regression Model
 	model = LinearRegressionModel(input_size=8)
 	user = UserAVG(client_id, model, 0.01, x_tensor.size(0))
 	user.train(x_tensor, y_tensor)
-	return
 
+	# Test the model
+	x_test_tensor, y_test_tensor = parse_csv_file("FLData/calhousing_test_client1.csv")
+
+	user.test(x_test_tensor, y_test_tensor)
+	return
 	# Connect to the Server
 	while True:
 		try:
