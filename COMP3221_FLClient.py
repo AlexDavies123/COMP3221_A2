@@ -18,33 +18,48 @@ import matplotlib.pyplot as plt
 
 class UserAVG():
 	def __init__(self, client_id, model, learning_rate, batch_size):
+		# ID value of the client, will need it to print the client name
 		self.client_id = client_id
+		# The model that the client will be training
 		self.model = model
+		# The learning rate of the model (Can be changed to whatever we want)
 		self.learning_rate = learning_rate
+		# The batch size of the model (Determines what sort of optimisation we want to do)
 		self.batch_size = batch_size
 
 	def train(self, x_tensor, y_tensor):
-		# Create a DataLoader object
+		# Create the dataset from the two tensors
 		dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+		# Create the data loader from the dataset, will load the amount of data specified by batch_size
 		train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-		# Define the loss function
+		# Define the loss function, we r using MSELOSS (Determines how close to the desired result we are)
 		criterion = nn.MSELoss()
 
-		# Define the optimizer
-		optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+		# Define the optimizer, we r using SGD (Stochastic Gradient Descent) This can and im pretty sure should be changed
+		# Basically is how the model will have it paramters updated
+		optimiser = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
 
 		# Train the model
+		# 100 Iterations of the dataset
 		epochs = 100
 		for epoch in range(epochs):
 			epoch_loss = 0
+			# For the batch in the train loader
 			for x_batch, y_batch in train_loader:
-				optimizer.zero_grad()
+				# Needs to be done to clear the gradients of the model
+				optimiser.zero_grad()
+				# This is where the model is run against the data
 				output = self.model(x_batch)
+				# Calculates the loss of the model based on MSELOSS
 				loss = criterion(output, y_batch)
+				# Calculates the gradients of the model
 				loss.backward()
-				optimizer.step()
+				# Updates the model parameters based on the gradients calculated above (stored in the tensors)
+				optimiser.step()
+				# Calculate the total loss of the epoch
 				epoch_loss += loss.item()
+			# Calculate the total loss of the epoch based on how many batches there was
 			epoch_loss /= len(train_loader)
 			print(f"Client {self.client_id} - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss}")
 
@@ -60,8 +75,6 @@ def parse_csv_file():
 
 	x_tensor = torch.tensor(x, dtype=torch.float32)
 	y_tensor = torch.tensor(y, dtype=torch.float32)
-
-	y_tensor = y_tensor.reshape(-1, 1)
 
 	# Normalize the input values
 	x_tensor = min_max_scaling(x_tensor)
@@ -94,7 +107,7 @@ def main():
 
 	# Create a Linear Regression Model
 	model = LinearRegressionModel(input_size=8)
-	user = UserAVG(client_id, model, 0.01, 2808)
+	user = UserAVG(client_id, model, 0.01, x_tensor.size(0))
 	user.train(x_tensor, y_tensor)
 	return
 
