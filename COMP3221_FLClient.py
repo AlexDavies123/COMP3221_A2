@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from model import LinearRegressionModel
 
 import os
 import socket
@@ -14,6 +15,40 @@ import pandas
 
 import matplotlib
 import matplotlib.pyplot as plt
+
+class UserAVG():
+	def __init__(self, client_id, model, learning_rate, batch_size):
+		self.client_id = client_id
+		self.model = model
+		self.learning_rate = learning_rate
+		self.batch_size = batch_size
+
+	def train(self, x_tensor, y_tensor):
+		# Create a DataLoader object
+		dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+		train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+		# Define the loss function
+		criterion = nn.MSELoss()
+
+		# Define the optimizer
+		optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+
+		# Train the model
+		epochs = 100
+		for epoch in range(epochs):
+			epoch_loss = 0
+			for x_batch, y_batch in train_loader:
+				optimizer.zero_grad()
+				output = self.model(x_batch)
+				loss = criterion(output, y_batch)
+				loss.backward()
+				optimizer.step()
+				epoch_loss += loss.item()
+			epoch_loss /= len(train_loader)
+			print(f"Client {self.client_id} - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss}")
+
+		return self.model
 
 	
 def parse_csv_file():
@@ -57,8 +92,10 @@ def main():
 	
 	x_tensor, y_tensor = parse_csv_file()
 
-	plt.scatter(x_tensor[:, 0], y_tensor)
-	plt.show()
+	# Create a Linear Regression Model
+	model = LinearRegressionModel(input_size=8)
+	user = UserAVG(client_id, model, 0.01, 2808)
+	user.train(x_tensor, y_tensor)
 	return
 
 	# Connect to the Server
