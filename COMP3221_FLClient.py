@@ -114,31 +114,64 @@ def main():
 		print("Optimization method should be 0 or 1")
 		return
 	
-	x_tensor, y_tensor = parse_csv_file("FLData/calhousing_train_client1.csv")
+	file_name = "FLData/calhousing_train_" + client_id + ".csv"
+	
+	x_tensor, y_tensor = parse_csv_file(file_name)
+	user = UserAVG(client_id, LinearRegressionModel(), 0.01, x_tensor.size(0))
 
 
-	# Create a Linear Regression Model
-	model = LinearRegressionModel(input_size=8)
-	user = UserAVG(client_id, model, 0.01, x_tensor.size(0))
-	user.train(x_tensor, y_tensor)
+	# # Test the model
+	# x_test_tensor, y_test_tensor = parse_csv_file("FLData/calhousing_test_client1.csv")
 
-	# Test the model
-	x_test_tensor, y_test_tensor = parse_csv_file("FLData/calhousing_test_client1.csv")
-
-	user.test(x_test_tensor, y_test_tensor)
-	return
+	# user.test(x_test_tensor, y_test_tensor)
 	# Connect to the Server
 	while True:
 		try:
-			client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			sending_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			server_address = ('localhost', 6000)
-			client_socket.connect(server_address)
+			sending_sock.connect(server_address)
 			break
 		except Exception as e:
 			print(f"Error: {e}")
 			continue
 
 	print(f"Connected to the server on {server_address[0]}:{server_address[1]}")
+	data = {'message_type': 'init',
+		   	 'data': {
+				"client_id": client_id,
+				"port": port,
+				"data_size": x_tensor.size(0)
+	}}
+	sending_sock.sendall(json.dumps(data).encode())
+	sending_sock.close()
+
+	# Receive the model from the server
+	receiving_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	server_address = ('localhost', port)
+	receiving_sock.bind(server_address)
+	receiving_sock.listen(1)
+	server_sock, server_addr = receiving_sock.accept()
+	print(f"Accepted connection from {server_addr[0]}:{server_addr[1]}")
+	data = server_sock.recv(1024).decode()
+	data = json.loads(data)
+	if data['message_type'] == 'model':
+		model = LinearRegressionModel()
+		model.load_state_dict(torch.load(data['data']))
+	else:
+		print("Non MODEL message received")
+	
+	# Train the model
+	result = user.train(x_tensor, y_tensor)
+
+
+
+
+
+	# # Test the model
+	# x_test_tensor, y_test_tensor = parse_csv_file("FLData/calhousing_test_client1.csv")
+
+	# user.test(x_test_tensor, y_test_tensor)
+	# Connect to the Server
 		
 
 	

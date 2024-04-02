@@ -17,6 +17,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 NUM_CLIENTS = 5
+MAX_TRAINING_ROUNDS = 10
 
 
 #Server should do these:
@@ -25,8 +26,17 @@ NUM_CLIENTS = 5
 # Evaluate: evaluate the global model across all clients
 
 
-def send_parameters():
-	pass
+def send_parameters(model: LinearRegressionModel, client_info):
+	for client in client_info:
+		client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		client_address = ('localhost', client['port'])
+		client_socket.connect(client_address)
+		data = {
+			'message_type': 'model',
+			'data': model.state_dict()
+		}
+		client_socket.send(json.dumps(data).encode())
+		client_socket.close()
 
 def aggregate_parameters():
 	pass
@@ -51,7 +61,12 @@ def initial_client_connections(port, client_info):
 
 	client_socket, client_address = server_socket.accept()
 	print(f"Accepted connection from {client_address[0]}:{client_address[1]}")
-	client_info.append((client_socket, client_address))
+	data = client_socket.recv(1024).decode()
+	data = json.loads(data)
+	if data['message_type'] == 'init':
+		client_info.append(data['data'])
+	else:
+		print("Non INIT message received")
 
 	timeout = 10
 
@@ -62,8 +77,12 @@ def initial_client_connections(port, client_info):
 		try:
 			client_socket, client_address = server_socket.accept()
 			print(f"Accepted connection from {client_address[0]}:{client_address[1]}")
-			data = client_socket.recv(1024)
-			client_info.append(data)
+			data = client_socket.recv(1024).decode()
+			if data['message_type'] == 'init':
+				client_info.append(data['data'])
+			else:
+				print("Non INIT message received")
+				continue
 		except socket.timeout:
 			current_time = time.time()
 			if current_time - start_time >= timeout:
@@ -101,8 +120,21 @@ def main():
 	initial_client_connections(port, client_info)
 	print(client_info)
 
-	model = LinearRegressionModel()
-	torch.deserailization
+	global_model = LinearRegressionModel()
+	# Send the global model to all clients
+
+	training_round = 0
+	while training_round < MAX_TRAINING_ROUNDS:
+		training_round += 1
+		send_parameters(global_model, client_info)
+		print(f"Global Iteration {training_round}:")
+		print(f"Total Number of clients {len(client_info)}")
+
+		# Receive the updated models from all clients
+		# Aggregate the updated models to generate a new global model
+		# Evaluate the global model across all clients
+
+
 
 
 
