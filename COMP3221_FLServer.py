@@ -12,6 +12,7 @@ import copy
 import random
 import numpy as np
 import time
+import pickle
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -29,13 +30,14 @@ MAX_TRAINING_ROUNDS = 10
 def send_parameters(model: LinearRegressionModel, client_info):
 	for client in client_info:
 		client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		print(client['port'])
 		client_address = ('localhost', client['port'])
 		client_socket.connect(client_address)
-		data = {
-			'message_type': 'model',
-			'data': model.state_dict()
-		}
-		client_socket.send(json.dumps(data).encode())
+		# data = {
+		# 	'message_type': 'model',
+		# 	'data': pickle.dumps(model.state_dict())
+		# }
+		client_socket.send(pickle.dumps(model.state_dict()))
 		client_socket.close()
 
 def aggregate_parameters():
@@ -78,6 +80,7 @@ def initial_client_connections(port, client_info):
 			client_socket, client_address = server_socket.accept()
 			print(f"Accepted connection from {client_address[0]}:{client_address[1]}")
 			data = client_socket.recv(1024).decode()
+			data = json.loads(data)
 			if data['message_type'] == 'init':
 				client_info.append(data['data'])
 			else:
@@ -91,6 +94,7 @@ def initial_client_connections(port, client_info):
 			print(f"Error: {e}")
 			break
 
+	
 	# Close the server socket
 	server_socket.close()
 

@@ -11,6 +11,7 @@ import json
 import copy
 import random
 import pandas
+import pickle
 
 
 import matplotlib
@@ -152,13 +153,14 @@ def main():
 	receiving_sock.listen(1)
 	server_sock, server_addr = receiving_sock.accept()
 	print(f"Accepted connection from {server_addr[0]}:{server_addr[1]}")
-	data = server_sock.recv(1024).decode()
-	data = json.loads(data)
-	if data['message_type'] == 'model':
-		model = LinearRegressionModel()
-		model.load_state_dict(torch.load(data['data']))
-	else:
-		print("Non MODEL message received")
+	data = server_sock.recv(1024)
+	data = pickle.loads(data)
+	user.model.load_state_dict(data)
+	# if data['message_type'] == 'model':
+	# 	model = LinearRegressionModel()
+	# 	model.load_state_dict(torch.load(data['data']))
+	# else:
+	# 	print("Non MODEL message received")
 	
 	# Train the model
 	result = user.train(x_tensor, y_tensor)
