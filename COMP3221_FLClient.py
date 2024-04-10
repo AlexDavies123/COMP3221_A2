@@ -77,6 +77,25 @@ class UserAVG():
 			print(f"Client {self.client_id} - Test Loss: {loss.item()}")
 
 
+def send_parameters(model: LinearRegressionModel):
+	sending_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	server_address = ('localhost', 6000)
+	sending_socket.connect(server_address)
+	sending_socket.send(pickle.dumps(model.state_dict()))
+	sending_socket.close()
+
+def receive_parameters(model: LinearRegressionModel, client_id):
+	receiving_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	server_address = ('localhost', client_id)
+	receiving_socket.bind(server_address)
+	receiving_socket.listen(1)
+	server_socket, server_address = receiving_socket.accept()
+	data = server_socket.recv(1024)
+	data = pickle.loads(data)
+	model.load_state_dict(data)
+
+
+
 	
 def parse_csv_file(input_file):
 	df = pandas.read_csv(input_file)
@@ -146,27 +165,16 @@ def main():
 	sending_sock.sendall(json.dumps(data).encode())
 	sending_sock.close()
 
-	# Receive the model from the server
-	receiving_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	server_address = ('localhost', port)
-	receiving_sock.bind(server_address)
-	receiving_sock.listen(1)
-	server_sock, server_addr = receiving_sock.accept()
-	print(f"Accepted connection from {server_addr[0]}:{server_addr[1]}")
-	data = server_sock.recv(1024)
-	data = pickle.loads(data)
-	user.model.load_state_dict(data)
-	# if data['message_type'] == 'model':
-	# 	model = LinearRegressionModel()
-	# 	model.load_state_dict(torch.load(data['data']))
-	# else:
-	# 	print("Non MODEL message received")
+
+	while True:
+		# Receive the data
+		receive_parameters(user.model, port)
 	
-	# Train the model
-	result = user.train(x_tensor, y_tensor)
+		# Train the model and update it
+		user.train(x_tensor, y_tensor)
 
-
-
+		# Send the data
+		send_parameters(user.model)
 
 
 	# # Test the model

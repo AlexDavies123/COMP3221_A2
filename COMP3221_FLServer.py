@@ -12,7 +12,8 @@ import copy
 import random
 import numpy as np
 import time
-import pickle
+import threading
+import numpy
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -25,20 +26,37 @@ MAX_TRAINING_ROUNDS = 10
 #Send_parameters: Broadcast the global model to all clients
 # Aggregate_parameters: aggregate new global model from local models of all clients
 # Evaluate: evaluate the global model across all clients
+class SendingThread(threading.Thread):
+	def __init__(self, model, client_info):
+		threading.Thread.__init__(self)
+		self.model = model
+		self.client_info = client_info
 
+	def run(self):
+		send_parameters(self.model, self.client_info)
 
 def send_parameters(model: LinearRegressionModel, client_info):
 	for client in client_info:
 		client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		print(client['port'])
 		client_address = ('localhost', client['port'])
 		client_socket.connect(client_address)
-		# data = {
-		# 	'message_type': 'model',
-		# 	'data': pickle.dumps(model.state_dict())
-		# }
-		client_socket.send(pickle.dumps(model.state_dict()))
+
+		# Need to convert the state_dict into json object before sending
+		# store the json object within the data section of the dictionary
+		# then send the dictionary object
+		sending_value = []
+		for key, value in model.state_dict().items():
+			sending_value.append((key, value.tolist()))
+		print(sending_value)
+		data = {
+			'message_type': 'model',
+			'data':	sending_value
+		}
+		client_socket.send(json.dumps(data).encode())
+		# client_socket.send(pickle.dumps(model.state_dict()))
 		client_socket.close()
+
+# Receive the updated models from all clients and aggregate the updated models.
 
 def aggregate_parameters():
 	pass
@@ -138,6 +156,7 @@ def main():
 		# Aggregate the updated models to generate a new global model
 		# Evaluate the global model across all clients
 
+	# Send a client exit command to all clients
 
 
 
