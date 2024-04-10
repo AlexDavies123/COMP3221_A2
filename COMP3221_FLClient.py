@@ -44,6 +44,7 @@ class UserAVG():
 
 		# Train the model
 		# 100 Iterations of the dataset
+		total_loss = 0
 		epochs = 100
 		for epoch in range(epochs):
 			epoch_loss = 0
@@ -63,9 +64,10 @@ class UserAVG():
 				epoch_loss += loss.item()
 			# Calculate the total loss of the epoch based on how many batches there was
 			epoch_loss /= len(train_loader)
-			print(f"Client {self.client_id} - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss}")
+			total_loss += epoch_loss
+			# print(f"Client {self.client_id} - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss}")
 
-		return self.model
+		return total_loss / epochs
 
 	def test(self, x_tensor, y_tensor):
 		# Run the model against the test data
@@ -75,7 +77,7 @@ class UserAVG():
 			mse = nn.MSELoss()
 			output = self.model(x_tensor)
 			loss = mse(output, y_tensor)
-			print(f"Client {self.client_id} - Test Loss: {loss.item()}")
+			return loss.item()
 
 
 def send_parameters(model: LinearRegressionModel):
@@ -95,7 +97,6 @@ def send_parameters(model: LinearRegressionModel):
 
 def receive_parameters(model: LinearRegressionModel, client_id):
 	receiving_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	print(client_id)
 	receiving_socket.bind(('localhost', client_id))
 	receiving_socket.listen(5)
 	server_socket, server_address = receiving_socket.accept()
@@ -183,11 +184,17 @@ def main():
 
 
 	while True:
+		print(f"I am client {client_id[-1]}")
 		# Receive the data
 		receive_parameters(user.model, port)
-	
+		print(f"Received new global model")
+		testing_loss = user.test(x_tensor, y_tensor)
+		print(f"Testing MSE: {testing_loss}")
+
 		# Train the model and update it
-		user.train(x_tensor, y_tensor)
+		training_loss = user.train(x_tensor, y_tensor)
+		print(f"Training MSE: {training_loss}")
+		print(f"Sending new local model")
 		# Send the data
 		send_parameters(user.model)
 

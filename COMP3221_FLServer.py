@@ -77,8 +77,8 @@ class ReceivingThread(threading.Thread):
 
 def send_parameters(model: LinearRegressionModel, client_info):
 	time.sleep(1)
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	for client in client_info:
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		try:
 			s.connect(('localhost', client['port']))
 			sending_value = []
@@ -89,11 +89,11 @@ def send_parameters(model: LinearRegressionModel, client_info):
 					'data':	sending_value
 				}
 			s.sendall(json.dumps(data).encode())
-			s.close()
 		except Exception as e:
 			print(f"Error: {e}, {str(client)}")
 			time.sleep(1)
 			continue
+		s.close()
 
 # Receive the updated models from all clients and aggregate the updated models.
 
