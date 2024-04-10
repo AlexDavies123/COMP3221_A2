@@ -8,53 +8,92 @@ import os
 import socket
 import sys
 import json
-import copy
-import random
 import numpy as np
 import time
 import threading
-import numpy
+import signal
 
 import matplotlib
 import matplotlib.pyplot as plt
 
 NUM_CLIENTS = 5
 MAX_TRAINING_ROUNDS = 10
+Terminate = threading.Event()
 
 
 #Server should do these:
 #Send_parameters: Broadcast the global model to all clients
 # Aggregate_parameters: aggregate new global model from local models of all clients
 # Evaluate: evaluate the global model across all clients
-class SendingThread(threading.Thread):
-	def __init__(self, model, client_info):
+
+def signal_handler(sig, frame):
+	print("Ctrl+C pressed")
+	Terminate.set()
+	sys.exit(0)
+
+class ReceivingThread(threading.Thread):
+	def __init__(self, model_data, client_to_be_added):
 		threading.Thread.__init__(self)
-		self.model = model
-		self.client_info = client_info
+		self._stop = Terminate
+		self.model_data = model_data
+		self.client_to_be_added = client_to_be_added
+	
+	def stopped(self):
+		return self._stop.is_set()
 
 	def run(self):
-		send_parameters(self.model, self.client_info)
+		receiving_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		server_address = ('localhost', 6000)
+		receiving_socket.bind(server_address)
+		receiving_socket.listen(5)
+		receiving_socket.settimeout(1)
+		while True:
+			if self.stopped():
+				receiving_socket.close()
+				return
+
+			try:
+				client_socket, client_address = receiving_socket.accept()
+			except socket.timeout:
+				continue
+
+			data = client_socket.recv(1024).decode()
+			data = json.loads(data)
+			if data['message_type'] == 'init':
+				self.client_to_be_added.append(data['data'])
+				client_socket.close()
+			elif data['message_type'] == 'model':
+				params = data['data']
+				state_dict = {}
+				for key, value in params:
+					state_dict[key] = torch.tensor(value)
+				self.model_data.append(state_dict)
+				client_socket.close()
+			else:
+				print("No known message type")
+				client_socket.close()
+
+
 
 def send_parameters(model: LinearRegressionModel, client_info):
+	time.sleep(1)
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	for client in client_info:
-		client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		client_address = ('localhost', client['port'])
-		client_socket.connect(client_address)
-
-		# Need to convert the state_dict into json object before sending
-		# store the json object within the data section of the dictionary
-		# then send the dictionary object
-		sending_value = []
-		for key, value in model.state_dict().items():
-			sending_value.append((key, value.tolist()))
-		print(sending_value)
-		data = {
-			'message_type': 'model',
-			'data':	sending_value
-		}
-		client_socket.send(json.dumps(data).encode())
-		# client_socket.send(pickle.dumps(model.state_dict()))
-		client_socket.close()
+		try:
+			s.connect(('localhost', client['port']))
+			sending_value = []
+			for key, value in model.state_dict().items():
+				sending_value.append((key, value.tolist()))
+				data = {
+					'message_type': 'model',
+					'data':	sending_value
+				}
+			s.sendall(json.dumps(data).encode())
+			s.close()
+		except Exception as e:
+			print(f"Error: {e}, {str(client)}")
+			time.sleep(1)
+			continue
 
 # Receive the updated models from all clients and aggregate the updated models.
 
@@ -104,12 +143,14 @@ def initial_client_connections(port, client_info):
 			else:
 				print("Non INIT message received")
 				continue
+			client_socket.close()
 		except socket.timeout:
 			current_time = time.time()
 			if current_time - start_time >= timeout:
 				break
 		except Exception as e:
 			print(f"Error: {e}")
+			client_socket.close()
 			break
 
 	
@@ -118,6 +159,7 @@ def initial_client_connections(port, client_info):
 
 
 def main():
+	signal.signal(signal.SIGINT, signal_handler)
 
 	# CLI info parsing
 	if len(sys.argv) != 3:
@@ -146,15 +188,27 @@ def main():
 	# Send the global model to all clients
 
 	training_round = 0
+	client_model_data = []
+	clients_to_be_added = []
+	ReceivingThread(client_model_data, clients_to_be_added).start()
 	while training_round < MAX_TRAINING_ROUNDS:
+
+		# Add any new clients waiting to be added to the system
+		for client in clients_to_be_added:
+			client_info.append(client)
+		clients_to_be_added.clear()
+
 		training_round += 1
 		send_parameters(global_model, client_info)
 		print(f"Global Iteration {training_round}:")
 		print(f"Total Number of clients {len(client_info)}")
 
-		# Receive the updated models from all clients
-		# Aggregate the updated models to generate a new global model
-		# Evaluate the global model across all clients
+		while len(client_model_data) < len(client_info):
+			pass
+
+		# Aggregate the updated models from all the clients
+
+	Terminate.set()
 
 	# Send a client exit command to all clients
 

@@ -11,11 +11,12 @@ import json
 import copy
 import random
 import pandas
-import pickle
+import threading
 
 
 import matplotlib
 import matplotlib.pyplot as plt
+
 
 class UserAVG():
 	def __init__(self, client_id, model, learning_rate, batch_size):
@@ -81,18 +82,33 @@ def send_parameters(model: LinearRegressionModel):
 	sending_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server_address = ('localhost', 6000)
 	sending_socket.connect(server_address)
-	sending_socket.send(pickle.dumps(model.state_dict()))
+
+	sending_value = []
+	for key, value in model.state_dict().items():
+		sending_value.append((key, value.tolist()))
+	data = {
+		'message_type': 'model',
+		'data':	sending_value
+	}
+	sending_socket.send(json.dumps(data).encode())
 	sending_socket.close()
 
 def receive_parameters(model: LinearRegressionModel, client_id):
 	receiving_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	server_address = ('localhost', client_id)
-	receiving_socket.bind(server_address)
-	receiving_socket.listen(1)
+	print(client_id)
+	receiving_socket.bind(('localhost', client_id))
+	receiving_socket.listen(5)
 	server_socket, server_address = receiving_socket.accept()
-	data = server_socket.recv(1024)
-	data = pickle.loads(data)
-	model.load_state_dict(data)
+	data = server_socket.recv(1024).decode()
+	data = json.loads(data)
+	state_dict = {}
+	if data['message_type'] == 'model':
+		params = data['data']
+		for key, value in params:
+			state_dict[key] = torch.tensor(value)
+		model.load_state_dict(state_dict)
+	server_socket.close()
+	receiving_socket.close()
 
 
 
@@ -172,7 +188,6 @@ def main():
 	
 		# Train the model and update it
 		user.train(x_tensor, y_tensor)
-
 		# Send the data
 		send_parameters(user.model)
 
