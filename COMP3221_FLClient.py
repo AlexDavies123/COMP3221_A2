@@ -11,6 +11,7 @@ import copy
 import random
 import pandas
 import threading
+import os
 
 
 import matplotlib
@@ -181,8 +182,14 @@ def main():
 	}}
 	sending_sock.sendall(json.dumps(data).encode())
 	sending_sock.close()
+	
+	# Clear the log file from previous runs
+	if os.path.exists(f"{client_id}_log.txt"):
+		os.remove(f"{client_id}_log.txt")
 
 
+	iteration = 0
+    
 	while True:
 		print(f"I am client {client_id[-1]}")
 		# Receive the data
@@ -195,6 +202,18 @@ def main():
 		training_loss = user.train(x_tensor, y_tensor)
 		print(f"Training MSE: {training_loss}")
 		print(f"Sending new local model")
+
+        # Write to log file 
+		file_name = f"{client_id}_log.txt"
+		file = open(file_name, "a")
+		file.write(f"Global Iteration: {iteration}")
+		file.write(f", Training MSE: {training_loss}")
+		file.write(f", Testing MSE: {testing_loss}\n")
+		file.close()
+		
+		# increment the iteration
+		iteration += 1
+
 		# Send the data
 		send_parameters(client_id, user.model)
 
