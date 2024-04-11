@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from model import LinearRegressionModel
 
-import os
 import socket
 import sys
 import json
@@ -45,7 +44,7 @@ class UserAVG():
 		# Train the model
 		# 100 Iterations of the dataset
 		total_loss = 0
-		epochs = 100
+		epochs = 20
 		for epoch in range(epochs):
 			epoch_loss = 0
 			# For the batch in the train loader
@@ -80,7 +79,7 @@ class UserAVG():
 			return loss.item()
 
 
-def send_parameters(model: LinearRegressionModel):
+def send_parameters(client_id, model: LinearRegressionModel):
 	sending_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server_address = ('localhost', 6000)
 	sending_socket.connect(server_address)
@@ -89,6 +88,7 @@ def send_parameters(model: LinearRegressionModel):
 	for key, value in model.state_dict().items():
 		sending_value.append((key, value.tolist()))
 	data = {
+		'client_id': client_id,
 		'message_type': 'model',
 		'data':	sending_value
 	}
@@ -154,7 +154,7 @@ def main():
 	file_name = "FLData/calhousing_train_" + client_id + ".csv"
 	
 	x_tensor, y_tensor = parse_csv_file(file_name)
-	user = UserAVG(client_id, LinearRegressionModel(), 0.01, x_tensor.size(0))
+	user = UserAVG(client_id, LinearRegressionModel(), 0.05, x_tensor.size(0))
 
 
 	# # Test the model
@@ -196,7 +196,7 @@ def main():
 		print(f"Training MSE: {training_loss}")
 		print(f"Sending new local model")
 		# Send the data
-		send_parameters(user.model)
+		send_parameters(client_id, user.model)
 
 
 	# # Test the model

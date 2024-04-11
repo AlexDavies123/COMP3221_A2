@@ -17,7 +17,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 NUM_CLIENTS = 5
-MAX_TRAINING_ROUNDS = 10
+MAX_TRAINING_ROUNDS = 20
 Terminate = threading.Event()
 
 
@@ -67,6 +67,7 @@ class ReceivingThread(threading.Thread):
 				state_dict = {}
 				for key, value in params:
 					state_dict[key] = torch.tensor(value)
+				state_dict['client_id'] = data['client_id']
 				self.model_data.append(state_dict)
 				client_socket.close()
 			else:
@@ -97,11 +98,19 @@ def send_parameters(model: LinearRegressionModel, client_info):
 
 # Receive the updated models from all clients and aggregate the updated models.
 
-def aggregate_parameters():
-	pass
-
-def evaluate():
-	pass
+def aggregate_parameters(server_model, client_model_params, client_info):
+	for param in server_model.parameters():
+		param.data = torch.zeros_like(param.data)
+	
+	data_sum = sum([c['data_size'] for c in client_info])
+	
+	for client in client_info:
+		for client_model_data in client_model_params:
+			if client_model_data['client_id'] == client['client_id']:
+				for key in server_model.state_dict().keys():
+					server_model.state_dict()[key].data += client_model_data[key].data.clone() * (client['data_size']/data_sum)
+	client_model_params.clear()
+	return server_model
 
 
 def initial_client_connections(port, client_info):
@@ -180,17 +189,16 @@ def main():
 
 
 	# Listen for initial connection requests from clients
-	client_info = []
+	client_info = []     #{'client_id': 'client2', 'port': 6002, 'data_size': 2476}
 	initial_client_connections(port, client_info)
-	print(client_info)
 
 	global_model = LinearRegressionModel()
 	# Send the global model to all clients
 
 	training_round = 0
-	client_model_data = []
+	client_model_params = []
 	clients_to_be_added = []
-	ReceivingThread(client_model_data, clients_to_be_added).start()
+	ReceivingThread(client_model_params, clients_to_be_added).start()
 	while training_round < MAX_TRAINING_ROUNDS:
 
 		# Add any new clients waiting to be added to the system
@@ -202,11 +210,11 @@ def main():
 		send_parameters(global_model, client_info)
 		print(f"Global Iteration {training_round}:")
 		print(f"Total Number of clients {len(client_info)}")
-
-		while len(client_model_data) < len(client_info):
+		while len(client_model_params) < len(client_info):
 			pass
 
 		# Aggregate the updated models from all the clients
+		aggregate_parameters(global_model, client_model_params, client_info)
 
 	Terminate.set()
 
