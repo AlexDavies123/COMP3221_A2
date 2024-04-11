@@ -4,5 +4,11 @@ MACCCCCEEEEEEEERRRRRRRRRRRRRRRRRRRRR
 u gotta add the pdf noob!
 
 TODO:
-	Complete the federated learning algorithm in the server
-	All the clients send the data to the server but need to actually compile them with the algorithm to create a new model
+	Implement the server aggregated randomly sampling based on the cli input
+
+	Implement the clients using optimisation methods such as GD or Mini-Batch GD.
+
+	
+	Use figures and tables to visualise the convergence of the testing MSE and the training MSE over iterations to provide a clear representation of the models performance
+
+	report is 30% so significant portion allocated

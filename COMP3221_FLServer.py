@@ -69,6 +69,7 @@ class ReceivingThread(threading.Thread):
 					state_dict[key] = torch.tensor(value)
 				state_dict['client_id'] = data['client_id']
 				self.model_data.append(state_dict)
+				print(f"Getting local model from client {state_dict['client_id'][-1]}")
 				client_socket.close()
 			else:
 				print("No known message type")
@@ -195,26 +196,32 @@ def main():
 	global_model = LinearRegressionModel()
 	# Send the global model to all clients
 
-	training_round = 0
+	training_round = 1
 	client_model_params = []
 	clients_to_be_added = []
 	ReceivingThread(client_model_params, clients_to_be_added).start()
-	while training_round < MAX_TRAINING_ROUNDS:
+	send_parameters(global_model, client_info)
+	while training_round <= MAX_TRAINING_ROUNDS:
 
-		# Add any new clients waiting to be added to the system
-		for client in clients_to_be_added:
-			client_info.append(client)
-		clients_to_be_added.clear()
-
-		training_round += 1
-		send_parameters(global_model, client_info)
 		print(f"Global Iteration {training_round}:")
 		print(f"Total Number of clients {len(client_info)}")
+
+		# Add any new clients waiting to be added to the system
+
 		while len(client_model_params) < len(client_info):
 			pass
 
 		# Aggregate the updated models from all the clients
+		print("Aggregating new global model")
 		aggregate_parameters(global_model, client_model_params, client_info)
+
+		for client in clients_to_be_added:
+			client_info.append(client)
+		clients_to_be_added.clear()
+
+		print("Broadcasting new global model")
+		send_parameters(global_model, client_info)
+		training_round += 1
 
 	Terminate.set()
 
