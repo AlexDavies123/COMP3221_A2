@@ -12,6 +12,7 @@ import numpy as np
 import time
 import threading
 import signal
+import random
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -99,17 +100,26 @@ def send_parameters(model: LinearRegressionModel, client_info):
 
 # Receive the updated models from all clients and aggregate the updated models.
 
-def aggregate_parameters(server_model, client_model_params, client_info):
+def aggregate_parameters(server_model, client_model_params, client_info, sub_client):
 	for param in server_model.parameters():
 		param.data = torch.zeros_like(param.data)
 	
 	data_sum = sum([c['data_size'] for c in client_info])
-	
-	for client in client_info:
-		for client_model_data in client_model_params:
-			if client_model_data['client_id'] == client['client_id']:
+
+	for i in range(sub_client):
+		if len(client_model_params) == 0:
+			break
+		client_model_data = random.choice(client_model_params)
+		for client in client_info:
+			if client['client_id'] == client_model_data['client_id']:
 				for key in server_model.state_dict().keys():
 					server_model.state_dict()[key].data += client_model_data[key].data.clone() * (client['data_size']/data_sum)
+				for i, item in enumerate(client_model_params):
+					if item['client_id'] == client_model_data['client_id']:
+						client_model_params.pop(i)
+						break
+				break
+
 	client_model_params.clear()
 	return server_model
 
@@ -213,7 +223,7 @@ def main():
 
 		# Aggregate the updated models from all the clients
 		print("Aggregating new global model")
-		aggregate_parameters(global_model, client_model_params, client_info)
+		aggregate_parameters(global_model, client_model_params, client_info, sub_client)
 
 		for client in clients_to_be_added:
 			client_info.append(client)
@@ -225,7 +235,6 @@ def main():
 
 	Terminate.set()
 
-	# Send a client exit command to all clients
 
 
 
