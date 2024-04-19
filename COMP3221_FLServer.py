@@ -18,7 +18,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 NUM_CLIENTS = 5
-MAX_TRAINING_ROUNDS = 20
+MAX_TRAINING_ROUNDS = 40
 Terminate = threading.Event()
 
 
@@ -107,6 +107,10 @@ def aggregate_parameters(server_model, client_model_params, client_info, sub_cli
 	data_sum = sum([c['data_size'] for c in client_info])
 	if sub_client == 0:
 		sub_client = NUM_CLIENTS
+
+	# check for option 0 which means all clients
+	if sub_client == 0:
+		sub_client = len(client_info)
 
 	for i in range(sub_client):
 		if len(client_model_params) == 0:

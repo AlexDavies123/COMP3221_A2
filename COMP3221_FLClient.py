@@ -11,6 +11,7 @@ import copy
 import random
 import pandas
 import threading
+import os
 
 
 import matplotlib
@@ -31,6 +32,7 @@ class UserAVG():
 	def train(self, x_tensor, y_tensor):
 		# Create the dataset from the two tensors
 		dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+		
 		# Create the data loader from the dataset, will load the amount of data specified by batch_size
 		train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
@@ -154,8 +156,12 @@ def main():
 	file_name = "FLData/calhousing_train_" + client_id + ".csv"
 	
 	x_tensor, y_tensor = parse_csv_file(file_name)
-	user = UserAVG(client_id, LinearRegressionModel(), 0.05, 1)
-	#  x_tensor.size(0)
+
+	# Create user class with required batch_size ; 1 for SGD ; designated batch size for mini-batch
+	if opt_method == 0:
+		user = UserAVG(client_id, LinearRegressionModel(), 0.05, 1)
+	if opt_method == 1:
+		user = UserAVG(client_id, LinearRegressionModel(), 0.05, 64)
 
 
 	# # Test the model
@@ -182,22 +188,55 @@ def main():
 	}}
 	sending_sock.sendall(json.dumps(data).encode())
 	sending_sock.close()
+	
+	# Clear the log file from previous runs
+	if os.path.exists(f"{client_id}_log.txt"):
+		os.remove(f"{client_id}_log.txt")
 
 
+	iteration = 0
+	training_losses = []
+    
 	while True:
 		print(f"I am client {client_id[-1]}")
 		# Receive the data
-		receive_parameters(user.model, port)
-		print(f"Received new global model")
-		testing_loss = user.test(x_tensor, y_tensor)
-		print(f"Testing MSE: {testing_loss}")
+		try:
+			receive_parameters(user.model, port)
+			print(f"Received new global model")
+			testing_loss = user.test(x_tensor, y_tensor)
+			print(f"Testing MSE: {testing_loss}")
 
-		# Train the model and update it
-		training_loss = user.train(x_tensor, y_tensor)
-		print(f"Training MSE: {training_loss}")
-		print(f"Sending new local model")
-		# Send the data
-		send_parameters(client_id, user.model)
+			# Train the model and update it
+			training_loss = user.train(x_tensor, y_tensor)
+			print(f"Training MSE: {training_loss}")
+			print(f"Sending new local model")
+			training_losses.append(training_loss)
+
+			# Write to log file 
+			file_name = f"{client_id}_log.txt"
+			file = open(file_name, "a")
+			file.write(f"Global Iteration: {iteration}")
+			file.write(f", Training MSE: {training_loss}")
+			file.write(f", Testing MSE: {testing_loss}\n")
+			file.close()
+			
+			# increment the iteration
+			iteration += 1
+
+			# Send the data
+			send_parameters(client_id, user.model)
+		
+		except socket.error:
+			print("Server is not available")
+			break
+
+	# Plot the training loss
+	plt.plot(training_losses, label='Training Loss')
+	plt.xlabel('Iteration')
+	plt.ylabel('Training Loss')
+	plt.title('Training Loss over Iterations')
+	plt.legend()
+	plt.show()
 
 
 	# # Test the model
