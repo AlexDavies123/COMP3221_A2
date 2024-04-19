@@ -154,7 +154,8 @@ def main():
 	file_name = "FLData/calhousing_train_" + client_id + ".csv"
 	
 	x_tensor, y_tensor = parse_csv_file(file_name)
-	user = UserAVG(client_id, LinearRegressionModel(), 0.05, x_tensor.size(0))
+	user = UserAVG(client_id, LinearRegressionModel(), 0.05, 1)
+	#  x_tensor.size(0)
 
 
 	# # Test the model

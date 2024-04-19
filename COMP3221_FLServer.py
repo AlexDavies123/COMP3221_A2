@@ -105,6 +105,8 @@ def aggregate_parameters(server_model, client_model_params, client_info, sub_cli
 		param.data = torch.zeros_like(param.data)
 	
 	data_sum = sum([c['data_size'] for c in client_info])
+	if sub_client == 0:
+		sub_client = NUM_CLIENTS
 
 	for i in range(sub_client):
 		if len(client_model_params) == 0:
@@ -147,7 +149,7 @@ def initial_client_connections(port, client_info):
 	else:
 		print("Non INIT message received")
 
-	timeout = 10
+	timeout = 30
 
 	# Set a timeout for the server socket
 	server_socket.settimeout(1)
