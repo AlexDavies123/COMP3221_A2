@@ -1,8 +1,4 @@
 # COMP3221_A2
-MACCCCCEEEEEEEERRRRRRRRRRRRRRRRRRRRR
-
-u gotta add the pdf noob!
-
 TODO:
 
 	Implement the clients using optimisation methods such as GD or Mini-Batch GD.
